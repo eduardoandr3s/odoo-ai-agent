@@ -64,7 +64,7 @@ class AiAgentWizard(models.TransientModel):
         try:
             client = openai.OpenAI(base_url="http://ollama:11434/v1", api_key="ollama")
             completion = client.chat.completions.create(
-                model="llama3.2",
+                model="llama3.2:1b",
                 messages=[
                     {"role": "system", "content": system_msg},
                     {"role": "user", "content": user_msg}
