@@ -8,79 +8,85 @@ _logger = logging.getLogger(__name__)
 
 class FreshdeskImportWizard(models.TransientModel):
     _name = 'freshdesk.import.wizard'
-    _description = 'Importador de Soluciones XML'
+    _description = 'Importador Freshdesk XML'
 
     file_xml = fields.Binary(string="Archivo XML (Solutions.xml)", required=True)
     filename = fields.Char(string="Nombre de archivo")
 
     def action_import_xml(self):
-        """ Parsea el XML de Freshdesk y recrea la estructura en document.page """
         self.ensure_one()
-        
         try:
-            # 1. Decodificar archivo
             file_content = base64.b64decode(self.file_xml)
             root = ET.fromstring(file_content)
         except Exception as e:
-            raise UserError(f"No se pudo leer el archivo XML. Asegúrate de que es válido. Error: {str(e)}")
+            raise UserError(f"Error leyendo XML: {str(e)}")
 
-        count_articles = 0
-        count_folders = 0
+        count_cat = 0
+        count_fold = 0
+        count_art = 0
 
-        # El XML de Freshdesk suele ser: <solutions> -> <category> -> <folders> -> <folder> -> <articles> -> <article>
-        
-        # 2. Recorremos CATEGORÍAS
-        for category in root.findall('category'):
-            cat_name = self._get_node_text(category, 'name') or "Sin Categoría"
+        # 1. Crear una Página Raíz Maestra para tenerlo todo ordenado
+        master_root = self.env['document.page'].create({
+            'name': 'Importación Freshdesk',
+            'type': 'category',
+            'content': '<p>Contenido importado desde Solutions.xml</p>'
+        })
+
+        # 2. Buscar Categorías (solution-category)
+        # Usamos .// para encontrar las categorías sin importar la raíz principal
+        for category in root.findall('.//solution-category'):
+            cat_name = self._get_text(category, 'name')
+            cat_desc = self._get_text(category, 'description')
             
-            # Crear Página Padre (Categoría)
-            cat_page = self._create_page(cat_name, content=f"<h1>Categoría: {cat_name}</h1>", parent_id=False)
+            # Crear Página de Categoría
+            cat_page = self._create_page(cat_name, cat_desc, master_root.id)
+            count_cat += 1
 
-            # 3. Recorremos CARPETAS dentro de la categoría
+            # 3. Buscar Carpetas dentro (folders -> solution-folder)
             folders_node = category.find('folders')
             if folders_node is not None:
-                for folder in folders_node.findall('folder'):
-                    folder_name = self._get_node_text(folder, 'name') or "Sin Carpeta"
-                    
-                    # Crear Sub-página (Carpeta) vinculada a la Categoría
-                    folder_page = self._create_page(folder_name, content=f"<h2>Carpeta: {folder_name}</h2>", parent_id=cat_page.id)
-                    count_folders += 1
+                for folder in folders_node.findall('solution-folder'):
+                    fold_name = self._get_text(folder, 'name')
+                    fold_desc = self._get_text(folder, 'description')
 
-                    # 4. Recorremos ARTÍCULOS dentro de la carpeta
+                    # Crear Página de Carpeta (Hija de Categoría)
+                    fold_page = self._create_page(fold_name, fold_desc, cat_page.id)
+                    count_fold += 1
+
+                    # 4. Buscar Artículos dentro (articles -> solution-article)
                     articles_node = folder.find('articles')
                     if articles_node is not None:
-                        for article in articles_node.findall('article'):
-                            # Freshdesk usa <subject> para el título y <description> para el HTML
-                            art_title = self._get_node_text(article, 'subject') or "Sin Título"
-                            art_body = self._get_node_text(article, 'description') or ""
+                        for article in articles_node.findall('solution-article'):
+                            # EN ARTÍCULOS: El título es 'title' y el contenido 'description'
+                            art_title = self._get_text(article, 'title')
+                            art_body = self._get_text(article, 'description')
 
-                            # Crear el Artículo final vinculado a la Carpeta
-                            self._create_page(art_title, content=art_body, parent_id=folder_page.id)
-                            count_articles += 1
+                            # Crear Artículo (Hijo de Carpeta)
+                            self._create_page(art_title, art_body, fold_page.id)
+                            count_art += 1
 
-        # 5. Notificación de éxito
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
-                'title': 'Importación Exitosa',
-                'message': f'Se han creado {count_folders} carpetas y {count_articles} artículos en la Base de Conocimiento.',
+                'title': 'Importación Completada',
+                'message': f'Se crearon: {count_cat} Categorías, {count_fold} Carpetas y {count_art} Artículos.',
                 'type': 'success',
                 'sticky': False,
             }
         }
 
-    def _get_node_text(self, parent, tag_name):
-        """ Ayuda para extraer texto evitando errores si el tag no existe """
-        node = parent.find(tag_name)
-        return node.text if node is not None else ""
+    def _get_text(self, node, tag_name):
+        """ Extrae texto seguro, devolviendo string vacío si es None """
+        found = node.find(tag_name)
+        if found is not None and found.text:
+            return found.text
+        return ""
 
-    def _create_page(self, name, content, parent_id=False):
-        """ Crea el registro en document.page """
-        vals = {
-            'name': name,
-            'content': content,
+    def _create_page(self, name, content, parent_id):
+        return self.env['document.page'].create({
+            'name': name or "Sin Nombre",
+            'content': content or "",
             'parent_id': parent_id,
-            'type': 'content', # O 'category' si tu versión de document_page lo distingue
-        }
-        return self.env['document.page'].create(vals)
+            'type': 'content' 
+        })
