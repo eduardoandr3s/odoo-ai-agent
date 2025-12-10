@@ -1,0 +1,36 @@
+<odoo>
+    <record id="view_freshdesk_import_wizard" model="ir.ui.view">
+        <field name="name">freshdesk.import.wizard.form</field>
+        <field name="model">freshdesk.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Importar XML de Freshdesk">
+                <sheet>
+                    <div class="alert alert-info" role="alert">
+                        Sube tu archivo <b>Solutions.xml</b>. Se mantendrá la estructura: Categoría > Carpeta > Artículo.
+                    </div>
+                    <group>
+                        <field name="file_xml" filename="filename"/>
+                        <field name="filename" invisible="1"/>
+                    </group>
+                    <footer>
+                        <button name="action_import_xml" string="Importar Ahora" type="object" class="btn-primary"/>
+                        <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_freshdesk_import_wizard" model="ir.actions.act_window">
+        <field name="name">Importar Soluciones XML</field>
+        <field name="res_model">freshdesk.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_import_freshdesk"
+              name="Importar XML"
+              parent="document_page.menu_document_page"
+              action="action_freshdesk_import_wizard"
+              sequence="50"/>
+</odoo>

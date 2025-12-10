@@ -1,0 +1,66 @@
+<odoo>
+    <record id="view_ai_agent_wizard_form" model="ir.ui.view">
+        <field name="name">ai.agent.wizard.form</field>
+        <field name="model">ai.agent.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Asistente IA">
+                <sheet>
+                    <group>
+                        <field name="prompt" placeholder="Escribe tu pregunta o instrucción..."/>
+                        <field name="use_knowledge_base" widget="boolean_toggle"/>
+                    </group>
+                    
+                    <group invisible="not response">
+                        <separator string="Respuesta Generada"/>
+                        <field name="response" nolabel="1" widget="html"/>
+                    </group>
+                    
+                    <footer>
+                        <button name="action_ask_ai" 
+                                string="Consultar IA" 
+                                type="object" 
+                                class="btn-primary"/>
+                        
+                        <button name="action_save_to_knowledge" 
+                                string="Guardar en Documentación" 
+                                type="object" 
+                                class="btn-success"
+                                invisible="not response"/>
+
+                        <button string="Cerrar" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ai_agent_wizard" model="ir.actions.act_window">
+        <field name="name">Consultar IA</field>
+        <field name="res_model">ai.agent.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <record id="action_ai_agent_binding_partner" model="ir.actions.server">
+        <field name="name">Consultar IA</field>
+        <field name="model_id" ref="model_ai_agent_wizard"/>
+        <field name="binding_model_id" ref="base.model_res_partner"/> 
+        <field name="binding_view_types">form</field>
+        <field name="state">code</field>
+        <field name="code">
+            action = env.ref('odoo_ai_agent.action_ai_agent_wizard').read()[0]
+        </field>
+    </record>
+
+    <record id="action_ai_agent_binding_document_page" model="ir.actions.server">
+        <field name="name">Consultar IA</field>
+        <field name="model_id" ref="model_ai_agent_wizard"/>
+        <field name="binding_model_id" ref="document_page.model_document_page"/> 
+        <field name="binding_view_types">form</field>
+        <field name="state">code</field>
+        <field name="code">
+            action = env.ref('odoo_ai_agent.action_ai_agent_wizard').read()[0]
+        </field>
+    </record>
+
+</odoo>
